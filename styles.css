@@ -1,3 +1,17 @@
+.button-container {
+  margin: 20px auto;
+  text-align: center;
+}
+
+.start-button {
+  font-size: 24px;
+}
+
+.canvas-container {
+  margin: 10px auto;
+  text-align: center;
+}
+
 #screen {
   border: 1px solid #999;
 }
