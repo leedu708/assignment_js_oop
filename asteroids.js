@@ -1,6 +1,7 @@
 var model = {
 
   init: function(width, height, asteroidCount) {
+    model.resetGame();
     model.setCanvasSize(width, height);
 
     model.player = new model.Player();
@@ -11,11 +12,20 @@ var model = {
     };
 
     model.initAsteroidMethods();
+    model.initBulletMethods();
   },
 
-  player: null,
-  asteroids: [],
-  nextAsteroidID: 0,
+  resetGame: function() {
+    model.player = null;
+    model.asteroids = [];
+    model.nextAsteroidID = 0;
+    model.bullets = [];
+  },
+
+  setCanvasSize: function(width, height) {
+    model.width = width;
+    model.height = height;
+  },
 
   Player: function() {
     this.x = Math.floor(model.width / 2);
@@ -23,13 +33,140 @@ var model = {
     this.velX = 0;
     this.velY = 0;
     this.heading = 0;
+    this.cooldown = 0;
+    this.destroyed = false;
   },
 
   initPlayerMethods: function() {
-    model.Player.prototype.turnLeft = function() {
-      model.player.heading--;
-      console.log(model.player.heading);
+
+    model.Player.prototype.tic = function(inputs) {
+      if (this.destroyed) {
+        this.velX = 0;
+        this.velY = 0;
+      }
+
+      else {
+
+        if (this.cooldown > 0) {
+          this.cooldown--;
+        };
+
+        this.processInputs(inputs);
+        this.x += this.velX;
+        this.y += this.velY;
+        this.wrapX();
+        this.wrapY();
+      };
     };
+
+    model.Player.prototype.processInputs = function(inputs) {
+      if (inputs.turningLeft) {
+        this.turnLeft();
+      };
+
+      if (inputs.turningRight) {
+        this.turnRight();
+      };
+
+      if (inputs.accelerating) {
+        this.accelerate();
+      };
+
+      if (inputs.firing) {
+        this.fire();
+      };
+    };
+
+    model.Player.prototype.turnLeft = function() {
+      model.player.heading -= 5;
+    };
+
+    model.Player.prototype.turnRight = function() {
+      model.player.heading += 5;
+    };
+
+    model.Player.prototype.accelerate = function() {
+      var angle = model.player.heading * Math.PI / 180;
+      model.player.velX += 0.5 * Math.cos(angle);
+      model.player.velY += 0.5 * Math.sin(angle);
+    };
+
+    model.Player.prototype.fire = function() {
+      if (this.cooldown === 0) {
+        var bullet = new model.Bullet();
+        this.cooldown = 10;
+      };
+    };
+
+    model.Player.prototype.wrapX = function() {
+      var offScreenRight = (this.x > model.width + (2 * 10));
+      var movingRight = (this.velX > 0);
+      var offScreenLeft = (this.x < (-2 * 10));
+      var movingLeft = (this.velX < 0);
+
+      if (offScreenRight &&movingRight) {
+        this.wrapToLeft();
+      }
+
+      else if (offScreenLeft && movingLeft) {
+        this.wrapToRight();
+      };
+    };
+
+    model.Player.prototype.wrapY = function() {
+      var offScreenBottom = (this.y > model.height + (2 * 10));
+      var movingDown = (this.velY > 0);
+      var offScreenTop = (this.y < (-2 * 10));
+      var movingUp = (this.velY < 0);
+
+      if (offScreenBottom && movingDown) {
+        this.wrapToTop();
+      }
+
+      else if (offScreenTop && movingUp) {
+        this.wrapToBottom();
+      };
+    };
+
+    model.Player.prototype.wrapToLeft = function() {
+      this.x = -2 * 10;
+    };
+
+    model.Player.prototype.wrapToRight = function() {
+      this.x = model.width + (2 * 10);
+    };
+
+    model.Player.prototype.wrapToTop = function() {
+      this.y = -2 * 10;
+    };
+
+    model.Player.prototype.wrapToBottom = function() {
+      this.y = model.height + (2 * 10);
+    };
+
+    model.Player.prototype.asteroidCollisions = function() {
+      $.each(model.asteroids, function(index, asteroid) {
+        if (model.player.collidesWith(asteroid)) {
+          model.player.destroyed = true;
+          asteroid.destroyed
+        };
+      });
+    };
+
+    model.Player.prototype.collidesWith = function(asteroid) {
+      var dx = this.x - asteroid.x;
+      var dy = this.y - asteroid.y;
+      var distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < 10 + asteroid.radius) {
+        return true;
+      };
+    };
+
+    model.Player.prototype.destroy = function() {
+      model.player = null;
+    };
+
   },
 
   Asteroid: function(atts) {
@@ -45,22 +182,27 @@ var model = {
     model.asteroids.push(this);
   },
 
-  setCanvasSize: function(width, height) {
-    model.width = width;
-    model.height = height;
-  },
-
   initAsteroidAtts: function(x, y, velX, velY, radius) {
     var atts = {
       id: model.asteroids.length,
-      x: (x) ? x : model.randNum(0, model.width),
-      y: (y) ? y : model.randNum(0, model.height),
+      x: (x) ? x : model.startSpawnZone(model.width),
+      y: (y) ? y : model.startSpawnZone(model.height),
       velX: (velX) ? velX : model.randNum(-2, 2),
       velY: (velY) ? velY : model.randNum(-2, 2),
       radius: (radius) ? radius: model.randNum(10, 25)
     };
 
     return atts;
+  },
+
+  startSpawnZone: function(range) {
+    if (model.randNum(0, 1) === 0) {
+      return model.randNum(0, range / 4)
+    }
+
+    else {
+      return model.randNum(3 / 4 * range, range)
+    };
   },
 
   initAsteroidMethods: function() {
@@ -176,11 +318,69 @@ var model = {
 
   },
 
-  tic: function() {
+  Bullet: function() {
+    var angle = model.player.heading * Math.PI / 180;
+    this.x = model.player.x;
+    this.y = model.player.y;
+    this.velX = 10 * Math.cos(angle);
+    this.velY = 10 * Math.sin(angle);
+    this.radius = 2;
+    this.destroyed = false;
+    model.bullets.push(this);
+  },
+
+  initBulletMethods: function() {
+
+    model.Bullet.prototype.tic = function() {
+      if (this.destroyed) {
+        this.destroy();
+      }
+
+      else {
+        this.x += this.velX;
+        this.y += this.velY;
+      };
+    };
+
+    model.Bullet.prototype.destroy = function() {
+      var index = model.bullets.indexOf(this);
+      delete model.bullets[index];
+    };
+
+    model.Bullet.prototype.asteroidCollisions = function() {
+      var thisBullet = this;
+
+      $.each(model.asteroids, function(index, asteroid) {
+        if (thisBullet.collidesWith(asteroid)) {
+          thisBullet.destroyed = true;
+          asteroid.destroyed = true;
+        };
+      });
+    };
+
+    model.Bullet.prototype.collidesWith = function(asteroid) {
+      var dx = this.x - asteroid.x;
+      var dy = this.y - asteroid.y;
+      var distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < 10 + asteroid.radius) {
+        return true;
+      };
+    };
+
+  },
+
+  tic: function(playerInputs) {
     model.checkCollisions();
 
     $.each(model.asteroids, function(i, asteroid) {
       asteroid.tic();
+    });
+
+    model.player.tic(playerInputs);
+
+    $.each(model.bullets, function(index, bullet) {
+      bullet.tic();
     });
 
     model.ticCleanUp();
@@ -192,22 +392,39 @@ var model = {
         return asteroid;
       };
     });
+
+    model.bullets = $.map(model.bullets, function(bullet) {
+      if (bullet) {
+        return bullet;
+      };
+    });
   },
 
   checkCollisions: function() {
     $.each(model.asteroids, function(i, asteroid) {
       asteroid.asteroidCollisions();
     });
+
+    model.player.asteroidCollisions();
+
+    $.each(model.bullets, function(index, bullet) {
+      bullet.asteroidCollisions();
+    });
   },
 
   userInput: function() {
-    switch(even.which) {
+    switch(event.which) {
       case 37:
         model.player.turnLeft();
         break;
       case 39:
+        model.player.turnRight();
         break;
       case 38:
+        model.player.accelerate();
+        break;
+      case 32:
+        model.player.fire();
         break;
     };
   },
@@ -220,6 +437,10 @@ var model = {
     return model.asteroids;
   },
 
+  getBullets: function() {
+    return model.bullets;
+  },
+
   randNum: function(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
@@ -229,11 +450,12 @@ var model = {
 var view = {
 
   init: function(width, height, player, asteroids) {
+    $('.gameover').remove();
     view.$canvas = $('#screen');
     view.context = view.$canvas[0].getContext('2d');
     view.setCanvasSize(width, height);
     view.renderTic(player, asteroids);
-    $('.start-button').on('click', controller.start);
+    $('.start-button').text('Click to Start').on('click', controller.start);
   },
 
   setCanvasSize: function(width, height) {
@@ -241,10 +463,16 @@ var view = {
     view.$canvas.attr('height', height + 'px');
   },
 
-  renderTic: function(player, asteroids) {
+  renderTic: function(player, asteroids, bullets) {
     view.context.clearRect(0, 0, view.$canvas.width(), view.$canvas.height());
     view.renderPlayer(player);
-    $.each(asteroids, view.renderAsteroid);
+    if (asteroids) {
+      $.each(asteroids, view.renderAsteroid);
+    };
+
+    if (bullets) {
+      $.each(bullets, view.renderBullet);
+    }
   },
 
   renderAsteroid: function(index, asteroid) {
@@ -255,19 +483,51 @@ var view = {
     view.context.stroke();
   },
 
-  renderPlayer: function(player) {
-    view.context.beginPath();
-    view.context.moveTo(player.x, player.y - 15);
-    view.context.lineTo(player.x - 10, player.y + 15);
-    view.context.lineTo(player.x + 10, player.y + 15);
-    view.context.closePath();
+  renderPlayer: function(player, gameover) {
+    view.context.save();
+    view.context.translate(player.x, player.y);
     view.context.rotate(player.heading * Math.PI / 180);
-    view.context.strokeStyle = "#000";
+    view.context.beginPath();
+    view.context.moveTo(15, 0);
+    view.context.lineTo(-15, +10);
+    view.context.lineTo(-15, -10);
+    view.context.closePath();
+
+    // changes color of player when game is over
+    if (gameover) {
+      view.context.strokeStyle = "#F00";
+    }
+
+    else {
+      view.context.strokeStyle = "#000";
+    };
+
+    view.context.stroke();
+    view.context.restore();
+  },
+
+  renderBullet: function(index, bullet) {
+    view.context.beginPath();
+    view.context.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2, false);
+    view.context.closePath();
+    view.context.strokeStyle = "#F00";
     view.context.stroke();
   },
 
-  activateControls: function() {
-    $(window).on('keydown', model.userInput);
+  startControls: function() {
+    $(window).on('keydown', controller.userInput);
+    $(window).on('keyup', controller.userInputStop);
+  },
+
+  stopControls: function() {
+    $(window).off('keydown');
+  },
+
+  renderGameOver: function(player) {
+    view.renderPlayer(player, true);
+    $('.button-container').append("<h2 class='gameover'>Game Over!</h4>");
+    $('button').attr('disabled', false).text('Play Again?');
+    $('.start-button').on('click', controller.restart);
   }
 
 }
@@ -275,23 +535,92 @@ var view = {
 var controller = {
 
   init: function(width, height, asteroidCount) {
+    this.width = width;
+    this.height = height;
+    this.asteroidCount = asteroidCount;
+
     model.init(width, height, asteroidCount);
     view.init(width, height, model.getPlayer(), model.getAsteroids());
   },
 
+  // default settings
+  width: 640,
+  height: 480,
+  asteroidCount: 20,
+
+  inputs: {
+    accelerating: false,
+    turningLeft: false,
+    turningRight: false,
+    firing: false
+  },
+
   tic: function() {
-    model.tic();
-    view.renderTic(model.getPlayer(), model.getAsteroids());
+    model.tic(controller.inputs);
+    view.renderTic(model.getPlayer(), model.getAsteroids(), model.getBullets());
+    controller.checkGameOver();
   },
 
   start: function() {
     $('button').attr('disabled', true).off('click');
-    view.activateControls();
-    controller.interval = setInterval(controller.tic, 5);
+    view.startControls();
+    controller.interval = setInterval(controller.tic, 25);
+  },
+
+  userInput: function() {
+    switch(event.which) {
+      case 37:
+        controller.inputs.turningLeft = true;
+        break;
+      case 39:
+        controller.inputs.turningRight = true;
+        break;
+      case 38:
+        controller.inputs.accelerating = true;
+        break;
+      case 32:
+        controller.inputs.firing = true;
+        break;
+    };
+  },
+
+  userInputStop: function() {
+    switch(event.which) {
+      case 37:
+        controller.inputs.turningLeft = false;
+        break;
+      case 39:
+        controller.inputs.turningRight = false;
+        break;
+      case 38:
+        controller.inputs.accelerating = false;
+        break;
+      case 32:
+        controller.inputs.firing = false;
+        break;
+    };
+  },
+
+  checkGameOver: function() {
+    if(model.player.destroyed) {
+      clearInterval(controller.interval);
+      controller.endGame();
+    };
+  },
+
+  endGame: function() {
+    view.stopControls();
+    view.renderGameOver(model.getPlayer());
+  },
+
+  restart: function() {
+    console.log( 'controller.init');
+    $('.play-button').off('click');
+    controller.init(controller.width, controller.height, controller.asteroidCount)
   }
 
 }
 
 $(document).ready( function() {
-  controller.init(640, 480, 30);
+  controller.init(640, 480, 20);
 })
