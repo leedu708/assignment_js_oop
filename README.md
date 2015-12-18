@@ -5,6 +5,8 @@ by Dustin Lee
 Objectify! Construct! Prototype!  Win.
 [A JavaScript project using objects, constructors and prototypes from the Viking Code School](http://www.vikingcodeschool.com)
 
+[Play Here](https://htmlpreview.github.io/?https://github.com/leedu708/assignment_js_oop/blob/master/index.html)
+
 ##Overview
 
 ###Model:
@@ -90,7 +92,7 @@ Objectify! Construct! Prototype!  Win.
     getBullets(): return bullets array
     randNum(): generates a random number within a range
 
-View:
+###View:
 
   Functions:
 
@@ -104,7 +106,7 @@ View:
     stopControls(): turns off listeners on game over
     renderGameOver(): renders game over screen
 
-Controller:
+###Controller:
 
   Variables:
 
