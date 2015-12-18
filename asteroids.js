@@ -15,6 +15,7 @@ var model = {
     model.initBulletMethods();
   },
 
+  // resets variables
   resetGame: function() {
     model.player = null;
     model.asteroids = [];
@@ -27,6 +28,7 @@ var model = {
     model.height = height;
   },
 
+  // player object, starts in the center
   Player: function() {
     this.x = Math.floor(model.width / 2);
     this.y = Math.floor(model.height / 2);
@@ -40,13 +42,14 @@ var model = {
   initPlayerMethods: function() {
 
     model.Player.prototype.tic = function(inputs) {
+      // stop moving if destroyed
       if (this.destroyed) {
         this.velX = 0;
         this.velY = 0;
       }
 
       else {
-
+        // increment the inputs
         if (this.cooldown > 0) {
           this.cooldown--;
         };
@@ -59,6 +62,7 @@ var model = {
       };
     };
 
+    // use appropriate method based on input
     model.Player.prototype.processInputs = function(inputs) {
       if (inputs.turningLeft) {
         this.turnLeft();
@@ -98,13 +102,15 @@ var model = {
       };
     };
 
+    // if the player is moving a direction and moves off the canvas in that direction, wrap the player to the other side of the canvas
+    // horizontal wrap
     model.Player.prototype.wrapX = function() {
       var offScreenRight = (this.x > model.width + (2 * 10));
       var movingRight = (this.velX > 0);
       var offScreenLeft = (this.x < (-2 * 10));
       var movingLeft = (this.velX < 0);
 
-      if (offScreenRight &&movingRight) {
+      if (offScreenRight && movingRight) {
         this.wrapToLeft();
       }
 
@@ -113,6 +119,7 @@ var model = {
       };
     };
 
+    // vertical wrap
     model.Player.prototype.wrapY = function() {
       var offScreenBottom = (this.y > model.height + (2 * 10));
       var movingDown = (this.velY > 0);
@@ -128,6 +135,7 @@ var model = {
       };
     };
 
+    // instead of using just the width of the model, this allows the player heading to tip from the other side of the wrap
     model.Player.prototype.wrapToLeft = function() {
       this.x = -2 * 10;
     };
@@ -136,6 +144,7 @@ var model = {
       this.x = model.width + (2 * 10);
     };
 
+    // vertical wrapping
     model.Player.prototype.wrapToTop = function() {
       this.y = -2 * 10;
     };
@@ -144,11 +153,12 @@ var model = {
       this.y = model.height + (2 * 10);
     };
 
+    // checks for player collision with asteroid
     model.Player.prototype.asteroidCollisions = function() {
       $.each(model.asteroids, function(index, asteroid) {
         if (model.player.collidesWith(asteroid)) {
           model.player.destroyed = true;
-          asteroid.destroyed
+          asteroid.destroyed = true;
         };
       });
     };
@@ -169,6 +179,7 @@ var model = {
 
   },
 
+  // asteroid object
   Asteroid: function(atts) {
     this.id = model.nextAsteroidID;
     model.nextAsteroidID++;
@@ -189,12 +200,13 @@ var model = {
       y: (y) ? y : model.startSpawnZone(model.height),
       velX: (velX) ? velX : model.randNum(-2, 2),
       velY: (velY) ? velY : model.randNum(-2, 2),
-      radius: (radius) ? radius: model.randNum(10, 25)
+      radius: (radius) ? radius: model.randNum(10, 30)
     };
 
     return atts;
   },
 
+  // makes sure that asteroids can't spawn on top of ship/center of the board
   startSpawnZone: function(range) {
     if (model.randNum(0, 1) === 0) {
       return model.randNum(0, range / 4)
@@ -304,8 +316,8 @@ var model = {
     model.Asteroid.prototype.spawnChildren = function() {
       var spawns = 1 + Math.floor(this.radius / 10);
       var spawnSize = Math.floor(this.radius / spawns);
-      var offsets = [[-1, -1], [1, 1], [-1, 1], [1, -1]];
-      for (var i = 0; i <= spawns; i++) {
+      var offsets = [[-2, -2], [2, 2], [-2, 2], [2, -2]];
+      for (var i = 0; i < spawns; i++) {
         console.log(offsets[i]);
         var newX = this.x + spawnSize * offsets[i][0];
         var newY = this.y + spawnSize * offsets[i][1];
@@ -318,6 +330,7 @@ var model = {
 
   },
 
+  // bullet object
   Bullet: function() {
     var angle = model.player.heading * Math.PI / 180;
     this.x = model.player.x;
@@ -477,19 +490,29 @@ var view = {
 
   renderAsteroid: function(index, asteroid) {
     view.context.beginPath();
+    // x, y are center, radius = radius of circle, start and end arc in radians. use arc() to create circle
     view.context.arc(asteroid.x, asteroid.y, asteroid.radius, 0, Math.PI * 2, false);
     view.context.closePath();
+    // color of circle
     view.context.strokeStyle = "#000";
+    // actually draw the circle
     view.context.stroke();
   },
 
   renderPlayer: function(player, gameover) {
+    // push current drawing state onto drawing state stack
     view.context.save();
     view.context.translate(player.x, player.y);
+    // rotate the triangle based on a given angle (heading * PI / 180)
+    // e.g. heading = 5 ==> 5 degrees
     view.context.rotate(player.heading * Math.PI / 180);
+    // create triangle, h = 30; b = 20
     view.context.beginPath();
+    // 15px up from center
     view.context.moveTo(15, 0);
+    // bottom left of triangle
     view.context.lineTo(-15, +10);
+    // bottom right of triangle
     view.context.lineTo(-15, -10);
     view.context.closePath();
 
@@ -503,10 +526,12 @@ var view = {
     };
 
     view.context.stroke();
+    // pop top state on the stack
     view.context.restore();
   },
 
   renderBullet: function(index, bullet) {
+    // similar to asteroid in creating a circle
     view.context.beginPath();
     view.context.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2, false);
     view.context.closePath();
@@ -514,18 +539,30 @@ var view = {
     view.context.stroke();
   },
 
+  // activate listeners
   startControls: function() {
     $(window).on('keydown', controller.userInput);
     $(window).on('keyup', controller.userInputStop);
   },
 
+  // turn off listeners
   stopControls: function() {
     $(window).off('keydown');
   },
 
+  // render game over state
   renderGameOver: function(player) {
     view.renderPlayer(player, true);
-    $('.button-container').append("<h2 class='gameover'>Game Over!</h4>");
+    // changes message based on if player is destroyed or if model.asteroids is empty
+    // empty model.asteroids is falsey
+    if (!model.asteroids.length) {
+      $('.button-container').append("<h2 class='gameover'>You Win!</h4>");
+    }
+
+    else {
+      $('.button-container').append("<h2 class='gameover'>Game Over!</h4>");
+    };
+
     $('button').attr('disabled', false).text('Play Again?');
     $('.start-button').on('click', controller.restart);
   }
@@ -584,6 +621,7 @@ var controller = {
     };
   },
 
+  // for smoothing inputs
   userInputStop: function() {
     switch(event.which) {
       case 37:
@@ -601,8 +639,9 @@ var controller = {
     };
   },
 
+  // game is over if player is destroyed or if model.asteroids is empty
   checkGameOver: function() {
-    if(model.player.destroyed) {
+    if (model.player.destroyed || !model.asteroids.length) {
       clearInterval(controller.interval);
       controller.endGame();
     };
