@@ -49,7 +49,7 @@ var model = {
       }
 
       else {
-        // increment the inputs
+        // cd for bullets
         if (this.cooldown > 0) {
           this.cooldown--;
         };
@@ -155,6 +155,7 @@ var model = {
 
     // checks for player collision with asteroid
     model.Player.prototype.asteroidCollisions = function() {
+      // checks against each asteroid in model.asteroids
       $.each(model.asteroids, function(index, asteroid) {
         if (model.player.collidesWith(asteroid)) {
           model.player.destroyed = true;
@@ -196,6 +197,7 @@ var model = {
   initAsteroidAtts: function(x, y, velX, velY, radius) {
     var atts = {
       id: model.asteroids.length,
+      // asteroids cannot spawn in center of the screen
       x: (x) ? x : model.startSpawnZone(model.width),
       y: (y) ? y : model.startSpawnZone(model.height),
       velX: (velX) ? velX : model.randNum(-2, 2),
@@ -309,11 +311,11 @@ var model = {
       delete model.asteroids[index];
 
       if (this.radius > 12) {
-        this.spawnChildren();
+        this.spawnChildAsteroids();
       };
     };
 
-    model.Asteroid.prototype.spawnChildren = function() {
+    model.Asteroid.prototype.spawnChildAsteroids = function() {
       var spawns = 1 + Math.floor(this.radius / 10);
       var spawnSize = Math.floor(this.radius / spawns);
       var offsets = [[-2, -2], [2, 2], [-2, 2], [2, -2]];
@@ -425,22 +427,22 @@ var model = {
     });
   },
 
-  userInput: function() {
-    switch(event.which) {
-      case 37:
-        model.player.turnLeft();
-        break;
-      case 39:
-        model.player.turnRight();
-        break;
-      case 38:
-        model.player.accelerate();
-        break;
-      case 32:
-        model.player.fire();
-        break;
-    };
-  },
+  // userInput: function() {
+  //   switch(event.which) {
+  //     case 37:
+  //       model.player.turnLeft();
+  //       break;
+  //     case 39:
+  //       model.player.turnRight();
+  //       break;
+  //     case 38:
+  //       model.player.accelerate();
+  //       break;
+  //     case 32:
+  //       model.player.fire();
+  //       break;
+  //   };
+  // },
 
   getPlayer: function() {
     return model.player;
@@ -583,7 +585,7 @@ var controller = {
   // default settings
   width: 640,
   height: 480,
-  asteroidCount: 20,
+  asteroidCount: 30,
 
   inputs: {
     accelerating: false,
@@ -661,5 +663,5 @@ var controller = {
 }
 
 $(document).ready( function() {
-  controller.init(640, 480, 20);
+  controller.init(640, 480, 30);
 })
